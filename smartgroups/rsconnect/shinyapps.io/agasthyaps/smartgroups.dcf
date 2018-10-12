@@ -1,0 +1,12 @@
+name: smartgroups
+title: smartgroups
+username:
+account: agasthyaps
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 458099
+bundleId: 1637584
+url: https://agasthyaps.shinyapps.io/smartgroups/
+when: 1539281803.17979
+asMultiple: FALSE
+asStatic: FALSE

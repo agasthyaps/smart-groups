@@ -1,0 +1,13 @@
+name: smartgroupslite
+title: smartgroupslite
+username:
+account: agasthyaps
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 507680
+bundleId: 1637559
+url: https://agasthyaps.shinyapps.io/smartgroupslite/
+when: 1539280939.73428
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: fakemc.csv|fakeroster.csv|tests.nb.html|tests.Rmd

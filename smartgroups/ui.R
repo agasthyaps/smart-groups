@@ -1,6 +1,6 @@
 ui <- dashboardPage(
   
-  dashboardHeader(title="Smart Groups"),
+  dashboardHeader(title="Smart Groups V 0.1"),
   dashboardSidebar(
     sidebarMenu(
       menuItem("Groups",tabName = "groups",icon=icon("users"))

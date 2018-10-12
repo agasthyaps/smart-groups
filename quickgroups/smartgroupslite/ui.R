@@ -45,13 +45,15 @@ ui <- dashboardPage(
                   p("Upload a class roster (right) and define group size limits, then click 'create groups'."),
                   p("The table below are randomly generated group assignments."),
                   p("DEV NOTE: the group assignments will be pipelined to a database where we can keep track of past groups in order to keep groups novel."))
-              ,DT::dataTableOutput("randresult")
+              ,DTOutput("randresult")
+              ,downloadButton(outputId = "downloadrand",label="Download csv")
               ),
       tabItem(tabName="qbgroups"
               ,box(title = "Making Question-Based Groups",
                   p("Upload a class roster (right) and define group size limits and group type, then click 'create groups'."),
                   p("The table below are groups created based on student answers."))
-              ,DT::dataTableOutput("qbresult")
+              ,DTOutput("qbresult")
+              ,downloadButton(outputId = "downloadquest",label="Download csv")
               )
     )
   )

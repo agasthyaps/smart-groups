@@ -295,7 +295,6 @@ server <- function(input,output,session){
     rownames = FALSE,
     # groups(),
     # x,
-    editable = TRUE,
     selection = 'none'
   )
   
