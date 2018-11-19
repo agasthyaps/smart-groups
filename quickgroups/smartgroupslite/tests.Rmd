@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "SmartGroups tests"
 output: html_notebook
 ---
 
@@ -64,9 +64,9 @@ checkMC(d)
 ```
 
 ```{r}
-mc <- read.csv("fakemc.csv",stringsAsFactors = F)
+mc <- read.csv("HT500 Which Show Do You Want to Discuss_ (Responses) - Form Responses 1.csv",stringsAsFactors = F)
 checkMC(mc)
-
+mc
 
 MCgroups = function(df, max, min){
   max <- as.numeric(max)
@@ -147,7 +147,82 @@ for(i in unique(d$assignment)){
   print(d[d$assignment == i,])
 }
 # split(mc,as.factor(mc$X.MC..What.do.you.like.))
-d
+
+for(i in unique(mc$X.MC..Which.one.of.the.programs.you.watched.for.this.session.are.you.most.eager.to.discuss.)){
+  print(mc[mc$X.MC..Which.one.of.the.programs.you.watched.for.this.session.are.you.most.eager.to.discuss.==i,])
+}
+
+```
+```{r}
+mc <- read.csv("HT500 Which Show Do You Want to Discuss_ (Responses) - Form Responses 1.csv",stringsAsFactors = F)
+df_to_groups <- function(df, gsize){
+  names(df) <- c("timestamp","name","answer")
+  df$assignment <- rep(0,nrow(df))
+  groups <- 1
+  
+  for(i in unique(df$answer)){
+    # rows <- rownames(ans)
+    if(nrow(df[df$answer ==i,])>=gsize){
+      o <- assign_groups(df[df$answer ==i,],gsize,groups)
+      groups <- o$groups
+      df[rownames(o$df),]$assignment <- o$df$assignment
+    }
+  }
+  unassigned <- df[df$assignment == 0,]
+  print(unassigned)
+  o <- assign_groups(df[df$assignment == 0,],gsize,groups)
+  df[rownames(o$df),]$assignment <- o$df$assignment
+  df[df$assignment == 0,]$assignment <- rep(o$groups+1,nrow(df[df$assignment == 0,]))
+  df
+}
+
+assign_groups <- function(df,gsize,groups){
+  rows <- rownames(df)
+  # print(rows)
+  for(i in seq(nrow(df)/gsize)){
+    inds <- sample(rows,gsize)
+    df[inds,]$assignment <- rep(groups,gsize)
+    groups <- groups + 1
+    rows <- rows[!rows %in% inds]
+  }
+  output <- list("df" = df, "groups" = groups)
+}
+
+balance_till_good <- function(df){
+  # check if there are an even number of leftovers AS WELL AS an even number of each answer.
+  # if so, you can make balanced groups (right?)
+  
+}
+
+d <- df_to_groups(mc,6)
+for(i in unique(d$assignment)){
+  print(d[d$assignment == i,])
+}
+```
+```{r}
+# t <- list("df" = mc,"groups"=1)
+# t$groups
+# mc$assignment <- rep(0,nrow(mc))
+# for(i in mc[[3]]){
+#   print(mc[mc[3] == i,])
+# }
+
+gsize <- 6
+b <- as.data.frame(list(
+  "names" = c("frank","lisa","amy","tom","carol","dumbo","fruit","arnold","hank","stank"),
+  "answers" = c("one","one","one","one","two","two","two","two","three","three")
+),stringsAsFactors = F)
+b$assignment <- rep(0,nrow(b))
+choices <- unique(b$answers)
+
+for(curgroup in seq(groups)){
+  for(i in seq(gsize)){
+    s <- i %% length(choices)
+    x <- ifelse(s == 0, choices[length(choices)], choices[s])
+    
+  }
+}
+
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.

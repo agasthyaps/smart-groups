@@ -1,0 +1,110 @@
+---
+title: "sgtests"
+output: html_notebook
+---
+
+```{r}
+data <- read.csv('data/fakeresponses.csv',stringsAsFactors = F)
+head(data)
+```
+```{r}
+data$assignment <- rep(0,nrow(data))
+by.interest <- split(data,as.factor(data$What.are.you.most.interested.in.))
+by.interest
+```
+```{r}
+# we will be ok with groups of size num_groups (+/- 1)
+group_size <- 4
+
+# for each data frame, take groups of 4 until you have too few (in the case of num_groups = 4, this would mean < 3).
+# for this data, there would be (2,1,1,0,1,2) left over in each interest group
+
+cur_group <- 1
+for(i in seq_along(by.interest)){
+  cur.df <- by.interest[[i]]
+  num_groups <- floor(nrow(cur.df)/group_size)
+  assignments <- c()
+  if(nrow(cur.df)>=group_size){
+    for(g in cur_group:(cur_group+(num_groups-1))){
+        assignments <- c(assignments,rep(cur_group,group_size))
+        # only shuffle if num_groups > 1
+        cur_group <- cur_group+1
+    }
+    rem <- nrow(cur.df) %% group_size
+    assignments <- c(assignments,rep(0,rem))
+    by.interest[[i]]$assignment <- assignments
+  }
+}
+```
+
+```{r}
+# then join the data back, add column 'remainders', set = T for the leftovers (assignment==0)
+# separate into 'assigned' and 'unassigned' dfs
+
+data2 <- bind_rows(by.interest)
+assigned <- data2[data2$assignment != 0,]
+unassigned <- data2[data2$assignment == 0,]
+
+# take the 'assigned' df, split by interest again.
+# shuffle to make diverse-skilled groups, re-assign
+# join the dfs back.
+
+a.by.interest <- split(assigned,as.factor(assigned$What.are.you.most.interested.in.))
+a.by.interest
+
+# now you have a bunch of assigned groups, and at most (num_groups-2)*(num_interest_groups) unassigned people [in this case, a max of 12]
+# how do we assign those people? 
+```
+
+```{r}
+  # calculates group memberships, returns table
+  # function takes in 's', a list of dfs
+  make_groups <- function(s, group_size){
+    
+    group_size <- as.numeric(group_size)
+    cur_group <- 1
+    
+    for(group in seq_along(s)){
+      s[[group]]$assignment <- 0
+      cur.df <- s[[group]]
+      num_groups <- floor(nrow(cur.df)/group_size)
+      assignments <- c()
+
+      if(nrow(cur.df)>=group_size){
+        
+        for(g in cur_group:(cur_group+(num_groups-1))){
+          assignments <- c(assignments,rep(cur_group,group_size))
+
+          cur_group <- cur_group+1
+        }
+        rem <- nrow(cur.df) %% group_size
+        assignments <- c(assignments,rep(0,rem))
+        # only shuffle if num_groups > 1
+        if(num_groups > 1){
+            s[[group]]$assignment <- assignments
+          }
+        else{
+            s[[group]]$assignment <- assignments
+          }
+      }
+    }
+    
+    final.df <- s
+    for(i in seq_along(final.df)){
+      r <- c(final.df[[i]] %>% rownames() %>% as.numeric())
+      final.df[[i]]$topics <- t()[r,]$lda
+      final.df[[i]]$interest <- t()[r,]$interest
+      final.df[[i]]$program <- t()[r,]$program
+      final.df[[i]]$graded <- t()[r,]$graded
+    }
+    final.df <- bind_rows(final.df)
+    final.df
+  }
+```
+```{r}
+for(i in 1:nrow(data)){
+  print(data[i,])
+}
+```
+
+

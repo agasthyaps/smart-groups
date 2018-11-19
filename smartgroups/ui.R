@@ -11,13 +11,12 @@ ui <- dashboardPage(
                 "text/comma-separated-values,text/plain",
                 ".csv")
     ),
-    tags$hr(),
+    # tags$hr(),
     checkboxInput("header","Header",TRUE),
-    textInput(inputId = "url",label = "Make sure the sheet is 'Published'!",
-              value = "",
-              placeholder = "paste url here"),
-    textInput(inputId="min.size",label="Min group size",value="3"),
-    textInput(inputId="max.size",label="Max group size",value="5")
+    # textInput(inputId = "url",label = "Make sure the sheet is 'Published'!",
+    #           value = "",
+    #           placeholder = "paste url here"),
+    textInput(inputId="group.size",label="Number of People per Group (+/- 1)",value="4")
     
   ),
   dashboardBody(
@@ -61,7 +60,10 @@ ui <- dashboardPage(
       
       column(6, style = 'padding:25px;',
              h3(icon("users"),"Groups"),
-                 DTOutput("sheet")
+              DTOutput("sheet"),
+             fluidRow(
+                 downloadButton(outputId = "download",label="Download csv")
+             )
              ),
       column(6, style = 'padding:25px;',
              fluidRow(

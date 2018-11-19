@@ -10,9 +10,6 @@ shinyServer(function(input, output) {
     inFile <- input$questions
     quest <- read.csv(inFile$datapath, header=T, stringsAsFactors = F)
     quest
-    # if(grepl("[MC]",names(quest)[3])){
-    #   
-    # }
   })
   
   randomGroups = function(df, max, min){
@@ -177,6 +174,10 @@ shinyServer(function(input, output) {
       write.csv(quest(),file)
     }
   )
+  
+  output$frame <- renderUI({
+    HTML("<iframe src='https://docs.google.com/forms/d/e/1FAIpQLScdbifDbdkRgTXUi5W6pJPtAw6B_1WjkRnojhsl1Lmtpsryew/viewform?embedded=true' width='640' height='698' frameborder='0' marginheight='0' marginwidth='0'>Loading...</iframe>")
+  })
   
   # for question groups:
   # first check if they want similar or mixed. if mixed, just do random groups

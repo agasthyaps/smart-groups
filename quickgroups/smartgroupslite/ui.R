@@ -41,12 +41,13 @@ ui <- dashboardPage(
   dashboardBody(
     tabItems(
       tabItem(tabName = "random"
-              ,box(title = "Making Random Groups",
-                  p("Upload a class roster (right) and define group size limits, then click 'create groups'."),
-                  p("The table below are randomly generated group assignments."),
-                  p("DEV NOTE: the group assignments will be pipelined to a database where we can keep track of past groups in order to keep groups novel."))
-              ,DTOutput("randresult")
-              ,downloadButton(outputId = "downloadrand",label="Download csv")
+              # ,box(title = "Making Random Groups",
+              #     p("Upload a class roster (right) and define group size limits, then click 'create groups'."),
+              #     p("The table below are randomly generated group assignments."),
+              #     p("DEV NOTE: the group assignments will be pipelined to a database where we can keep track of past groups in order to keep groups novel."))
+              # ,DTOutput("randresult")
+              # ,downloadButton(outputId = "downloadrand",label="Download csv")
+              ,uiOutput("frame")
               ),
       tabItem(tabName="qbgroups"
               ,box(title = "Making Question-Based Groups",
