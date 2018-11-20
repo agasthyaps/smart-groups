@@ -4,21 +4,15 @@ server <- function(input,output,session){
   # raw table
   t <- reactive({
     # read the url, create dfs
-    
     inFile <- input$file1
-    
-    # if (is.null(inFile)){
-    #   s <- (gs_url(input$url))
-    #   table <- as.data.frame(gs_read(s))
-    # }
-    s <- read.csv(inFile$datapath, header = input$header)
+    s <- read.csv(inFile$datapath, header = T)
     s[,1:ncol(s)] <- lapply(s[,1:ncol(s)],function(x) as.character(x))
     table <- s
     
     # rename skill columns
     skill.names <- vector()
-    for(i in seq(ncol(table)-7)){
-      skill.names <- c(skill.names,paste("skill",as.character(i),sep="."))
+    for(i in 8:ncol(table)){
+      skill.names <- c(skill.names,gsub("\\.","",regmatches(names(table)[i],regexpr("\\w+",names(table[i])),invert=T)[[1]][2]))
     }
     names(table) <- c("time","name","interest","group.names","graded","lda","program",skill.names)
     rownames(table) <- table$name
@@ -94,12 +88,6 @@ server <- function(input,output,session){
   # everything is label encoded
   top <- reactive({
     topic.list <- do_lda(t())
-    # cl.lda <- t()
-    # # add lda topics to df
-    # rownames(cl.lda) <- cl.lda$time
-    # cl.lda <- merge(cl.lda,topic.list,by=0)
-    # rownames(cl.lda) <- 1:nrow(cl.lda)
-    # cl.lda
   })
   
   le <- reactive({
@@ -128,14 +116,11 @@ server <- function(input,output,session){
     cl$graded <- le()$graded
     cl$program <- le()$program
     cl <- merge(cl,skills(),by=0)
-    # print(cl)
-    # # cl2 <- merge(cl,top(),by=0)
-    # # cl3 <- merge(cl2,le(),by=0)
-    # # cl4 <- merge(cl3,skills(),by=0)
-    # colnames(cl4)[1] <- "time"
     last <- ncol(cl)
     cl <- cl[,c(3,5:last,4)]
-    # print(rownames(cl))
+    cl <- split(cl,as.factor(cl$interest))
+    cl <- bind_rows(cl)
+    cl$alternate_grouping_strategy <- ""
     cl
   })
 
@@ -161,74 +146,6 @@ server <- function(input,output,session){
   
   # calculates group memberships, returns table
   # function takes in 's', a list of dfs
-  # make_groups <- function(s, max.size, min.size){
-  #   
-  #   max.size <- as.numeric(max.size)
-  #   min.size <- as.numeric(min.size)
-  #   
-  #   sweet.spot <- floor(mean(c(max.size,min.size)))
-  #   group.count <- 0
-  #   
-  #   for(group in seq_along(s)){
-  #     assignments <- vector()
-  #     # define group sizes
-  #     rows <- nrow(s[[group]])
-  #     s[[group]]$assignment <- 0
-  #     # if the number of people in an interest group is equal to the min
-  #     # then they are all in a group together.
-  #     if(rows == min.size){
-  #       group.count <- group.count+1
-  #       assignments <- c(assignments,rep(group.count,rows))
-  #       s[[group]]$assignment <- assignments
-  #       next
-  #     }
-  #     
-  #     rem <- rows %% sweet.spot
-  #     ifelse(rem == 0, stop.at <- 0, stop.at <- rem+sweet.spot)
-  #     while(rows > stop.at){
-  #       group.count <- group.count+1
-  #       assignments <- c(assignments,rep(group.count,sweet.spot))
-  #       rows <- rows-sweet.spot
-  #     }
-  #     if(rows == max.size){
-  #       group.count <- group.count+1
-  #       assignments <- c(assignments,rep(group.count,rows))
-  #       
-  #       s[[group]]$assignment <- assign_groups(s[[group]],assignments)
-  #       next
-  #     }
-  #     else if(sweet.spot-rem == 1){
-  #       group.count <- group.count+1
-  #       assignments <- c(assignments,rep(group.count,sweet.spot))
-  #       
-  #       group.count <- group.count+1
-  #       assignments <- c(assignments,rep(group.count,rem))
-  #       
-  #       s[[group]]$assignment <- assign_groups(s[[group]],assignments)
-  #       next
-  #     }
-  #     else{
-  #       while(rows > 0){
-  #         group.count <- group.count+1
-  #         assignments <- c(assignments,rep(group.count,min.size))
-  #         rows <- rows-min.size
-  #       }
-  #       s[[group]]$assignment <- assign_groups(s[[group]],assignments)
-  #     }
-  #   }
-  #   
-  #   final.df <- s
-  #   for(i in seq_along(final.df)){
-  #     r <- c(final.df[[i]] %>% rownames() %>% as.numeric())
-  #     final.df[[i]]$topics <- t()[r,]$lda
-  #     final.df[[i]]$interest <- t()[r,]$interest
-  #     final.df[[i]]$program <- t()[r,]$program
-  #     final.df[[i]]$graded <- t()[r,]$graded
-  #   }
-  #   final.df <- bind_rows(final.df)
-  #   final.df
-  # }
-  
   make_groups <- function(s, group_size){
     
     group_size <- as.numeric(group_size)
@@ -261,7 +178,6 @@ server <- function(input,output,session){
     
     final.df <- s
     for(i in seq_along(final.df)){
-      # r <- c(final.df[[i]] %>% rownames() %>% as.numeric())
       rownames(final.df[[i]]) <- final.df[[i]]$name
       r <- rownames(final.df[[i]])
       final.df[[i]]$topics <- t()[r,]$lda
@@ -276,10 +192,10 @@ server <- function(input,output,session){
         ra <- c(ra,"randomly assigned")
       }
       else{
-        ra <- c(ra,"")
+        ra <- c(ra,final.df$alternate_grouping_strategy[i])
       }
     }
-    final.df$random_assigned <- ra
+    final.df$alternate_grouping_strategy <- ra
     unassigned <- final.df[final.df$assignment == 0,]
     
     for(i in 1:nrow(unassigned)){
@@ -290,8 +206,16 @@ server <- function(input,output,session){
         }
       }
     }
+    unassigned <- final.df[final.df$assignment == 0,]
+    assigned <- final.df[final.df$assignment != 0,]
+    if(nrow(unassigned) > 0){
+      # unassigned <- at_least_min(unassigned,final.df$interest)
+      # print(unassigned)
+    }
+    
     final.df$assignment <- as.factor(final.df$assignment)
     final.df$interest <- as.factor(final.df$interest)
+    final.df$alternate_grouping_strategy <- as.factor(final.df$alternate_grouping_strategy)
     final.df
   }
   
@@ -299,7 +223,7 @@ server <- function(input,output,session){
   # appropriate diversity of skills (group size as limiting factor)
   until_its_good <- function(df,size){
     # important!!! (because now there is a topics and assignment column as the last columns)
-    last.skill <- ncol(df)-2
+    last.skill <- ncol(df)-3
     skills.table <- df[,6:last.skill]
     # skills.table[is.na(skills.table)] <- 0
     samp <- skills.table[sample(nrow(df),size),]
@@ -317,10 +241,12 @@ server <- function(input,output,session){
   # smaller than the minimum size
   # (I'm sure there's a cleaner way to do this)
   # takes a list of dfs
-  at_least_min <- function(df){
+  at_least_min <- function(wholedf,splitby){
+    df <- split(wholedf,as.factor(splitby))
     drop <- vector()
     for(i in seq_along(df)){
       if(nrow(df[[i]]) < as.numeric(input$group.size)-1){
+        
         small <- df[[i]]
         drop <- c(drop,i)
         
@@ -332,7 +258,10 @@ server <- function(input,output,session){
               next()
             }
             if(small[row,]$topics %in% df[[j]]$topics){
+              name <- small[row,]$name
               df[[j]] <- rbind(df[[j]],small[row,])
+              df[[j]][df[[j]]$name == name,]$alternate_grouping_strategy <- "recommended"
+              # print(df[[j]][df[[j]]$name == name,]$alternate_grouping_strategy)
               break
             }
           }
@@ -344,64 +273,103 @@ server <- function(input,output,session){
   }
 
   groups <- reactive({
+    if(is_null(input$file1)) return(NULL)
     # break up into separate dfs based on interest
-    interest.dfs <- split(clean(),as.factor(clean()$interest))
+    # interest.dfs <- split(clean(),as.factor(clean()$interest))
     # print(interest.dfs)
-    # interest.dfs <- at_least_min(interest.dfs)
+    interest.dfs <- at_least_min(clean(),clean()$interest)
     final.groups <- make_groups(interest.dfs,input$group.size)
+    
+    # get a list of skills so we can display in expanded row
+    allskills <- list()
+    final.groups$skills <- ""
+    for(i in 1:nrow(final.groups)){
+      tempskills <- ""
+      for(j in 8:15){
+        if(final.groups[i,names(final.groups)[j]] == 1){
+          tempskills <- paste(tempskills,names(final.groups)[j],sep= " • ")
+          # tempskills <- substr(tempskills,2,nchar(tempskills))
+        }
+      }
+      final.groups$skills[i] <- tempskills
+    }
+    
+    
+    final.groups <- final.groups[,c(1,2,3,4,ncol(final.groups),ncol(final.groups)-3,ncol(final.groups)-2,ncol(final.groups)-1,5:(ncol(final.groups)-4))]
+    # print(c(1,2,3,4,ncol(final.groups),ncol(final.groups)-3,ncol(final.groups)-2,ncol(final.groups)-1,5:(ncol(final.groups)-4)))
+    # print(names(final.groups))
     final.groups
     })
   
+  # options for DT
+  opts <- reactive({
+    if(is_null(input$file1)){
+      list()
+    }
+    else{
+      list(
+        columnDefs = list(
+          list(visible = F, targets = c(0,4,5,6,7,10:(ncol(groups())+1))
+          ),
+          list(orderable = T, className = 'details-control', targets = 1)
+        )
+      ) 
+    }
+  })
+  
   output$sheet <- renderDT({
     if(is_null(input$file1)) return(NULL)
-    groups()[,c(1,2,ncol(groups())-1,ncol(groups()))]
+    df <- cbind(' ' = '&oplus;',groups())
+    # names(df)[ncol(df)] <- "Group Assignment"
+    df
     },
-    server= FALSE,
+    escape = -2,
+    # server= FALSE,
     filter = 'top',
-    rownames = FALSE,
-    # groups(),
-    # x,
-    selection = 'none'
+    # rownames = FALSE,
+    selection = 'none',
+    options = opts,
+    callback = JS("
+  table.column(1).nodes().to$().css({cursor: 'pointer'});
+                  var format = function(d) {
+                  return '<div style=\"background-color:#add8e6; padding: .5em;\"><strong>Taking for a grade?:</strong> ' +
+                  d[4] +'<br>'+ '<strong>Program:</strong> ' + d[5] +'<br>'+ '<strong>Short Answer:</strong> ' + d[7] + '<br>'+ '<strong>Skills:</strong> ' + d[6] +'</div>';
+                  };
+                  table.on('click', 'td.details-control', function() {
+                  var td = $(this), row = table.row(td.closest('tr'));
+                  if (row.child.isShown()) {
+                  row.child.hide();
+                  td.html('&oplus;');
+                  } else {
+                  row.child(format(row.data())).show();
+                  td.html('&CircleMinus;');
+                  }
+                  });"
+    )
   )
   
-  # proxy = dataTableProxy('sheet')
-  # values <- reactiveValues()
-  # 
-  # observeEvent(input$sheet_cell_edit,{
-  #                info = input$sheet_cell_edit
-  #                str(info)
-  #                i = info$row
-  #                j = info$col
-  #                v = as.numeric(info$value)
-  #                print(v)
-  #                print(groups()[i, ncol(groups())])
-  # 
-  #                groups()[i, ncol(groups())] <<- DT::coerceValue(v, groups()[i, ncol(groups())])
-  #                replaceData(proxy, groups(), resetPaging = FALSE)
-  #              }
-  # )
-  
-  # renders cluster plot with n_clus = average(max.size,min.size)
   # just because its cool 
-  output$clusters <- renderPlotly({
-    if(is_null(input$file1)) return(NULL)
-    rows = input$sheet_rows_all
-    data <- clean()[,-c(4,5:(ncol(clean())-1))]
-    rownames(data) <- data$name
-    data <- data[-c(1)]
-    nclus <- floor(nrow(data)/as.numeric(input$group.size))
-    clus_results <- kmeans(data,nclus)
-    p <- autoplot(clus_results,data=data,frame=TRUE, label=TRUE,label.size=5)
-    # print(clus_results)
-    # ggplotly(p, tooltip = c("name"),layerData = 3)
-    p
-  })
+  # output$clusters <- renderPlotly({
+  #   if(is_null(input$file1)) return(NULL)
+  #   rows = input$sheet_rows_all
+  #   data <- clean()[rows,-c(4,5:(ncol(clean())-1))]
+  #   rownames(data) <- data$name
+  #   data <- data[-c(1)]
+  #   nclus <- floor(nrow(data)/as.numeric(input$group.size))
+  #   clus_results <- kmeans(data,nclus)
+  #   p <- autoplot(clus_results,data=data,frame=TRUE, label=TRUE,label.size=5)
+  #   # print(clus_results)
+  #   # ggplotly(p, tooltip = c("name"),layerData = 3)
+  #   p
+  # })
+  
+  
   
   output$skills <- renderPlotly({
     if(is_null(input$file1)) return(NULL)
     rows = input$sheet_rows_all
     df <- groups()[rows,]
-    df <- df %>% select(assignment,c(5:(ncol(df)-3))) %>% 
+    df <- df %>% select(assignment,c(9:(ncol(df)))) %>% 
       group_by(assignment) %>% 
       summarise_all(funs(sum))
     df <- melt(df,"assignment")
@@ -412,5 +380,10 @@ server <- function(input,output,session){
       xlab("Group") +
       ylab("Number of People in Group with Skill")
     ggplotly(p)
+  })
+
+
+  output$slider <- renderText({
+    paste("<h4>Number of People per Group (+/- 1): <strong>",input$group.size,"</strong></h4>",sep=" ")
   })
 }
