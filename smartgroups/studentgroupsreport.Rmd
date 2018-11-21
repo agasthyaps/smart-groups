@@ -1,0 +1,54 @@
+---
+title: "Student Groups"
+output: html_document
+params:
+  groups: "NA"
+  size: "NA"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(DT)
+library(fmsb)
+```
+
+## HT123 Groups
+
+Below are the generated groups for HT123, along with a visual representation of the distribution of skills within each group.
+
+```{r pressure, echo=FALSE,results='asis'}
+skills <- params$groups
+gsize <- params$size
+for(i in sort(unique(skills$assignment))){
+  cat('\n')  
+  cat("#Group ", i, " Stats\n")
+  cat("####",paste(cur_group$name,collapse=", "))
+  cur_group <- skills[skills$assignment==i,]
+  
+  rownames(cur_group) <- cur_group$names
+  cur_group_data <- cur_group[,-c(1,2)]
+  
+  totals <- as.data.frame(colSums(cur_group_data))
+  totals <- as.data.frame(t(totals))
+  nmax <- rep(gsize,ncol(totals))
+  nmin <- rep(0,ncol(totals))
+  
+  d <- rbind(nmax,nmin,totals)
+  p <- radarchart(d  , axistype=1 ,
+  
+      #custom polygon
+      pcol=rgb(0.2,0.5,0.5,0.9) , pfcol=rgb(0.2,0.5,0.5,0.5) , plwd=4 ,
+  
+      #custom the grid
+      cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,7,1), cglwd=0.8,
+  
+      #custom labels
+      vlcex=0.8,
+      title = paste("Skill Distribution for Group",i)
+    )
+  
+  p
+}
+
+```
+

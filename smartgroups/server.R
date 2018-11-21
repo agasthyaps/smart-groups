@@ -1,6 +1,8 @@
 server <- function(input,output,session){
   options(expressions = 5e5)
   
+  ##### FUNCTIONS #####
+  
   # raw table
   t <- reactive({
     # read the url, create dfs
@@ -121,6 +123,7 @@ server <- function(input,output,session){
     cl <- split(cl,as.factor(cl$interest))
     cl <- bind_rows(cl)
     cl$alternate_grouping_strategy <- ""
+    # print(rownames(cl))
     cl
   })
 
@@ -177,24 +180,33 @@ server <- function(input,output,session){
     }
     
     final.df <- s
+    cl <- clean()
+    rownames(cl) <- cl$name
     for(i in seq_along(final.df)){
       rownames(final.df[[i]]) <- final.df[[i]]$name
       r <- rownames(final.df[[i]])
-      final.df[[i]]$topics <- t()[r,]$lda
+      # print(r)
+      #CHANGED THIS
+      final.df[[i]]$topics <- cl[r,]$topics
       final.df[[i]]$interest <- t()[r,]$interest
       final.df[[i]]$program <- t()[r,]$program
       final.df[[i]]$graded <- t()[r,]$graded
     }
+
     final.df <- bind_rows(final.df)
+    # print(names(final.df))
+    
+    
     ra <- c()
     for(i in 1:nrow(final.df)){
       if(final.df$assignment[i] == 0){
-        ra <- c(ra,"randomly assigned")
+        ra <- c(ra,"unassigned")
       }
       else{
         ra <- c(ra,final.df$alternate_grouping_strategy[i])
       }
     }
+    
     final.df$alternate_grouping_strategy <- ra
     unassigned <- final.df[final.df$assignment == 0,]
     
@@ -203,19 +215,48 @@ server <- function(input,output,session){
       for(g in unique(pool$assignment)){
         if(nrow(pool[pool$assignment == g,]) < as.numeric(input$group.size)+1 && g != 0){
           final.df[rownames(unassigned[i,]),]$assignment <- pool[pool$assignment == g,]$assignment[1]
+          final.df[rownames(unassigned[i,]),]$alternate_grouping_strategy <- "randomly assigned"
         }
       }
     }
+    
+    
+    rownames(final.df) <- final.df$name
+    #ADDED THIS
     unassigned <- final.df[final.df$assignment == 0,]
-    assigned <- final.df[final.df$assignment != 0,]
     if(nrow(unassigned) > 0){
-      # unassigned <- at_least_min(unassigned,final.df$interest)
-      # print(unassigned)
+      assigned <- final.df[final.df$assignment != 0,]
+      assigned <- split(assigned,as.factor(assigned$assignment))
+      for(i in 1:nrow(unassigned)){
+        for(j in seq_along(assigned)){
+          if(unassigned[i,]$topics %in% assigned[[j]]$topics && nrow(assigned[[j]]) < (input$group.size+1)){
+            unassigned[i,]$assignment <- assigned[[j]]$assignment[1]
+            unassigned[i,]$alternate_grouping_strategy <- "recommended"
+            next()
+          }
+        }
+      }
+      for(i in 1:nrow(unassigned)){
+        r <- unassigned[i,]$name
+        final.df[r,]$assignment <- unassigned[i,]$assignment
+        final.df[r,]$alternate_grouping_strategy <- unassigned[i,]$alternate_grouping_strategy
+      }
+    }
+    
+    for(i in 1:nrow(final.df)){
+      r <- rownames(final.df[i,])
+      final.df[r,]$topics <- t()[r,]$lda
     }
     
     final.df$assignment <- as.factor(final.df$assignment)
     final.df$interest <- as.factor(final.df$interest)
     final.df$alternate_grouping_strategy <- as.factor(final.df$alternate_grouping_strategy)
+    
+    # CHANGED THIS
+
+    # final.df$topics <- t()$lda
+    # print(names(final.df))
+    
     final.df
   }
   
@@ -261,7 +302,6 @@ server <- function(input,output,session){
               name <- small[row,]$name
               df[[j]] <- rbind(df[[j]],small[row,])
               df[[j]][df[[j]]$name == name,]$alternate_grouping_strategy <- "recommended"
-              # print(df[[j]][df[[j]]$name == name,]$alternate_grouping_strategy)
               break
             }
           }
@@ -297,11 +337,15 @@ server <- function(input,output,session){
     
     final.groups <- final.groups[,c(1,2,3,4,ncol(final.groups),ncol(final.groups)-3,ncol(final.groups)-2,ncol(final.groups)-1,5:(ncol(final.groups)-4))]
     # print(c(1,2,3,4,ncol(final.groups),ncol(final.groups)-3,ncol(final.groups)-2,ncol(final.groups)-1,5:(ncol(final.groups)-4)))
-    # print(names(final.groups))
     final.groups
     })
   
-  # options for DT
+  
+  ##### OUTPUT #####
+  
+  #### TABLES
+  
+  # options for main DT
   opts <- reactive({
     if(is_null(input$file1)){
       list()
@@ -316,7 +360,6 @@ server <- function(input,output,session){
       ) 
     }
   })
-  
   output$sheet <- renderDT({
     if(is_null(input$file1)) return(NULL)
     df <- cbind(' ' = '&oplus;',groups())
@@ -348,23 +391,40 @@ server <- function(input,output,session){
     )
   )
   
-  # just because its cool 
-  # output$clusters <- renderPlotly({
-  #   if(is_null(input$file1)) return(NULL)
-  #   rows = input$sheet_rows_all
-  #   data <- clean()[rows,-c(4,5:(ncol(clean())-1))]
-  #   rownames(data) <- data$name
-  #   data <- data[-c(1)]
-  #   nclus <- floor(nrow(data)/as.numeric(input$group.size))
-  #   clus_results <- kmeans(data,nclus)
-  #   p <- autoplot(clus_results,data=data,frame=TRUE, label=TRUE,label.size=5)
-  #   # print(clus_results)
-  #   # ggplotly(p, tooltip = c("name"),layerData = 3)
-  #   p
-  # })
+  output$generalinfo <- renderText({
+    if(is_null(input$file1)) return(NULL)
+    df <- groups()
+    geninf <- list(
+      "Number of students" = nrow(df),
+      "Number of groups" = length(unique(df$assignment)),
+      "Most popular interest" = as.data.frame(df %>% group_by(interest) %>% 
+                                                summarise(n = n()) %>% 
+                                                filter(n==max(n)))[[1]],
+      "num of pop interest" = as.data.frame(df %>% group_by(interest) %>% 
+                                              summarise(n = n()) %>% 
+                                              filter(n==max(n)))[[2]],
+      "Least popular interest" = as.data.frame(df %>% group_by(interest) %>% 
+                                                 summarise(n = n()) %>% 
+                                                 filter(n==min(n)))[[1]],
+      "num of least pop" = as.data.frame(df %>% group_by(interest) %>% 
+                                           summarise(n = n()) %>% 
+                                           filter(n==min(n)))[[2]]
+    )
+    paste(
+      "<strong>Number of students</strong>:", geninf[[1]],
+      "<br>",
+      "<strong>Number of groups</strong>:", geninf[[2]], 
+      "<br>",
+      "<strong>Most popular interest</strong>:", geninf[[3]]," (", geninf[[4]],")",
+      "<br>",
+      "<strong>Least popular interest</strong>:",geninf[[5]]," (", geninf[[6]],")"
+    )
+  }
+  )
   
+  #### CHARTS
   
-  
+  #SKILLS PLOT
   output$skills <- renderPlotly({
     if(is_null(input$file1)) return(NULL)
     rows = input$sheet_rows_all
@@ -381,9 +441,94 @@ server <- function(input,output,session){
       ylab("Number of People in Group with Skill")
     ggplotly(p)
   })
+  
 
-
+  #### TEXT STUFF
+  
+  #SLIDER TEXT
   output$slider <- renderText({
     paste("<h4>Number of People per Group (+/- 1): <strong>",input$group.size,"</strong></h4>",sep=" ")
   })
+  
+  ################## STUDENT TAB ################
+  
+  student_sheet <- reactive({
+    if(input$usefile == T){
+      if(is_null(input$file2)) return(NULL)
+      inFile <- input$file2
+      ss <- read.csv(inFile$datapath, header = T,stringsAsFactors = F)
+      ss <- ss[,c(2,9:ncol(ss))]
+    }
+    else{
+      if(is_null(input$file1)) return(NULL)
+      ss <- groups()[,c(1,8:ncol(groups()))]
+    }
+    ss$assignment <- as.numeric(ss$assignment)
+    ss
+  })
+  
+  chosen <- reactive({
+    picked <- student_sheet()[student_sheet()$assignment == input$pickedgroup,]
+    picked
+  })
+  
+  # People in Group
+  output$peopleingroup <- renderText({
+    gm <- "<strong>Group Members:</strong><br>"
+    n <- paste(chosen()$name,collapse=", ")
+    paste(gm,n)
+  })
+  
+  # Spider plot
+  output$spider <- renderPlot({
+    if(is_null(student_sheet())) return(NULL)
+    cur_group <- chosen()
+    rownames(cur_group) <- cur_group$names
+    cur_group_data <- cur_group[,-c(1,2)]
+    # print(cur_group_data)
+    
+    totals <- as.data.frame(colSums(cur_group_data))
+    totals <- as.data.frame(transpose(totals))
+    names(totals) <- names(cur_group_data)
+    nmax <- rep(input$group.size,ncol(totals))
+    nmin <- rep(0,ncol(totals))
+    
+    d <- rbind(nmax,nmin,totals)
+    p <- radarchart(d  , axistype=1 ,
+                    
+                    #custom polygon
+                    pcol=rgb(0.2,0.5,0.5,0.9) , pfcol=rgb(0.2,0.5,0.5,0.5) , plwd=4 ,
+                    
+                    #custom the grid
+                    cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,7,1), cglwd=0.8,
+                    
+                    #custom labels
+                    vlcex=0.8,
+                    title = paste("Skill Distribution for Group",input$pickedgroup)
+    )
+    p
+  })
+  
+  # GROUP SELECTION
+  output$grouppick <- renderUI({
+    pickerInput(inputId = 'pickedgroup',
+                label = 'Select Group',
+                choices = sort(unique(student_sheet()$assignment)),
+                multiple = F)
+  })
+  
+  # generate report
+  output$report <- downloadHandler(
+    filename = "StudentGroupsReport.html",
+    content = function(file) {
+      tempReport <- file.path(tempdir(), "studentgroupsreport.Rmd")
+      file.copy("studentgroupsreport.Rmd",tempReport,overwrite = TRUE)
+      
+      params <- list(groups = student_sheet(),
+                     size = input$group.size)
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv()))
+    }
+  )
 }

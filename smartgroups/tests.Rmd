@@ -8,6 +8,18 @@ data <- read.csv('data/fakeresponses.csv',stringsAsFactors = F)
 head(data)
 ```
 ```{r}
+as.data.frame(data %>% group_by(What.are.you.most.interested.in.) %>% 
+  summarise(n = n()) %>% 
+  filter(n==max(n)))[[2]]
+
+d <- "Timestamp"
+as.factor(data[,d])
+  
+```
+
+
+
+```{r}
 data$assignment <- rep(0,nrow(data))
 by.interest <- split(data,as.factor(data$What.are.you.most.interested.in.))
 by.interest
@@ -101,39 +113,7 @@ a.by.interest
     final.df
   }
 ```
-```{r}
-for(i in 1:nrow(data)){
-  print(data[i,])
-}
-```
-```{r}
-library(DT)
-datatable(
-  cbind(' ' = '&oplus;', mtcars), escape = -2,
-  options = list(
-    columnDefs = list(
-      list(visible = FALSE, targets = c(0, 2, 3)),
-      list(orderable = FALSE, className = 'details-control', targets = 1)
-    )
-  ),
-  callback = JS("
-  table.column(1).nodes().to$().css({cursor: 'pointer'});
-  var format = function(d) {
-    return '<div style=\"background-color:#eee; padding: .5em;\"> Model: ' +
-            d[0] + ', mpg: ' + d[2] + ', cyl: ' + d[3] + '</div>';
-  };
-  table.on('click', 'td.details-control', function() {
-    var td = $(this), row = table.row(td.closest('tr'));
-    if (row.child.isShown()) {
-      row.child.hide();
-      td.html('&oplus;');
-    } else {
-      row.child(format(row.data())).show();
-      td.html('&CircleMinus;');
-    }
-  });"
-))
-```
+
 ```{r}
 for(i in 8:ncol(data)){
   print(gsub("\\.","",regmatches(names(data)[i],regexpr("\\w+",names(data[i])),invert=T)[[1]][2]))
@@ -159,32 +139,37 @@ for(i in 1:nrow(data)){
 substr(";poop",2,nchar(";poop"))
 ```
 ```{r}
-# Library
-library(fmsb)
- 
-# Create data: note in High school for Jonathan:
-data=as.data.frame(matrix( sample( 2:20 , 10 , replace=T) , ncol=10))
-colnames(data)=c("math" , "english" , "biology" , "music" , "R-coding", "data-viz" , "french" , "physic", "statistic", "sport" )
- 
-# To use the fmsb package, I have to add 2 lines to the dataframe: the max and min of each topic to show on the plot!
-data=rbind(rep(20,10) , rep(0,10) , data)
- 
-# The default radar chart proposed by the library:
-radarchart(data)
- 
-# Custom the radarChart !
-radarchart( data  , axistype=1 , 
- 
-    #custom polygon
-    pcol=rgb(0.2,0.5,0.5,0.9) , pfcol=rgb(0.2,0.5,0.5,0.5) , plwd=4 , 
- 
-    #custom the grid
-    cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,20,5), cglwd=0.8,
- 
-    #custom labels
-    vlcex=0.8 
-    )
-data
+# # Library
+# library(fmsb)
+#  
+# # Create data: note in High school for Jonathan:
+# data=as.data.frame(matrix( sample( 2:20 , 10 , replace=T) , ncol=10))
+# colnames(data)=c("math" , "english" , "biology" , "music" , "R-coding", "data-viz" , "french" , "physic", "statistic", "sport" )
+#  
+# # To use the fmsb package, I have to add 2 lines to the dataframe: the max and min of each topic to show on the plot!
+# data=rbind(rep(20,10) , rep(0,10) , data)
+#  
+# # The default radar chart proposed by the library:
+# radarchart(data)
+#  
+# # Custom the radarChart !
+# radarchart( data  , axistype=1 , 
+#  
+#     #custom polygon
+#     pcol=rgb(0.2,0.5,0.5,0.9) , pfcol=rgb(0.2,0.5,0.5,0.5) , plwd=4 , 
+#  
+#     #custom the grid
+#     cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,20,5), cglwd=0.8,
+#  
+#     #custom labels
+#     vlcex=0.8 
+#     )
+# data
+```
+```{r}
+for(i in unique(data$What.are.you.most.interested.in.)){
+  print(data[data$What.are.you.most.interested.in.==i,])
+}
 ```
 
 
