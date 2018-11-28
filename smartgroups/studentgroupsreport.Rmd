@@ -16,31 +16,47 @@ library(fmsb)
 
 Below are the generated groups for HT123, along with a visual representation of the distribution of skills within each group.
 
+---
+
 ```{r pressure, echo=FALSE,results='asis'}
 skills <- params$groups
 gsize <- params$size
 for(i in sort(unique(skills$assignment))){
   cat('\n')  
-  cat("#Group ", i, " Stats\n")
-  cat("####",paste(cur_group$name,collapse=", "))
+  cat("#Group ", i, "\n")
+  cat("###",paste(cur_group$name,collapse=", "),"\n")
   cur_group <- skills[skills$assignment==i,]
   
   rownames(cur_group) <- cur_group$names
   cur_group_data <- cur_group[,-c(1,2)]
+  skillnames <- names(cur_group_data)
   
-  totals <- as.data.frame(colSums(cur_group_data))
-  totals <- as.data.frame(t(totals))
+  thesums <- as.data.frame(colSums(cur_group_data))
+  names(thesums) <- "total"
+  thesums$skill <- skillnames
+  
+  whatwewant <- thesums[thesums$total != 0,]
+  
+  totals <- as.data.frame(t(whatwewant[,1]))
+  names(totals) <- rownames(whatwewant)
   nmax <- rep(gsize,ncol(totals))
   nmin <- rep(0,ncol(totals))
   
   d <- rbind(nmax,nmin,totals)
-  p <- radarchart(d  , axistype=1 ,
+  p <- radarchart(d  , axistype=0 ,
   
       #custom polygon
-      pcol=rgb(0.2,0.5,0.5,0.9) , pfcol=rgb(0.2,0.5,0.5,0.5) , plwd=4 ,
+      pcol=rgb(0.2,0.5,0.5,0.9) 
+      , pfcol=rgb(0.2,0.5,0.5,0.5) 
+      , plwd=4
+      ,seg = gsize
   
       #custom the grid
-      cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,7,1), cglwd=0.8,
+      ,cglcol="grey"
+      ,cglty=1
+      , axislabcol="grey"
+      # , caxislabels=seq(0,gsize,1)
+      , cglwd=0.8,
   
       #custom labels
       vlcex=0.8,
@@ -48,7 +64,11 @@ for(i in sort(unique(skills$assignment))){
     )
   
   p
+  
+  # if(nrow(whatwewant) != nrow(thesums)){
+  #   cat("\nNo one indicated the following skills as strengths:",paste(rownames(thesums[thesums$total==0,]),collapse=", "))
+  # }
+  cat("\n\n---\n\n")
 }
 
 ```
-

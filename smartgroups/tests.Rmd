@@ -139,32 +139,36 @@ for(i in 1:nrow(data)){
 substr(";poop",2,nchar(";poop"))
 ```
 ```{r}
-# # Library
-# library(fmsb)
-#  
-# # Create data: note in High school for Jonathan:
-# data=as.data.frame(matrix( sample( 2:20 , 10 , replace=T) , ncol=10))
-# colnames(data)=c("math" , "english" , "biology" , "music" , "R-coding", "data-viz" , "french" , "physic", "statistic", "sport" )
-#  
-# # To use the fmsb package, I have to add 2 lines to the dataframe: the max and min of each topic to show on the plot!
-# data=rbind(rep(20,10) , rep(0,10) , data)
-#  
-# # The default radar chart proposed by the library:
-# radarchart(data)
-#  
-# # Custom the radarChart !
-# radarchart( data  , axistype=1 , 
-#  
-#     #custom polygon
-#     pcol=rgb(0.2,0.5,0.5,0.9) , pfcol=rgb(0.2,0.5,0.5,0.5) , plwd=4 , 
-#  
-#     #custom the grid
-#     cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,20,5), cglwd=0.8,
-#  
-#     #custom labels
-#     vlcex=0.8 
-#     )
-# data
+# Library
+library(fmsb)
+
+# Create data: note in High school for Jonathan:
+data1=as.data.frame(matrix( sample( 2:20 , 10 , replace=T) , ncol=10))
+colnames(data1)=c("math" , "english" , "biology" , "music" , "R-coding", "data-viz" , "french" , "physic", "statistic", "sport" )
+
+# To use the fmsb package, I have to add 2 lines to the dataframe: the max and min of each topic to show on the plot!
+data1=rbind(rep(20,10) , rep(0,10) , data1)
+
+# The default radar chart proposed by the library:
+radarchart(data1)
+
+# Custom the radarChart !
+radarchart( data1  , axistype=1 ,
+
+    #custom polygon
+    pcol=rgb(0.2,0.5,0.5,0.9) , pfcol=rgb(0.2,0.5,0.5,0.5) , plwd=4 ,
+
+    #custom the grid
+    cglcol="grey", cglty=1, axislabcol="grey", caxislabels=seq(0,20,5), cglwd=0.8,
+
+    #custom labels
+    vlcex=0.8
+    )
+testd <- as.data.frame(colSums(data1))
+names(testd) <- "total"
+testd$skill <- rownames(testd)
+rownames(testd[testd$total >=25,])
+names(data1)
 ```
 ```{r}
 for(i in unique(data$What.are.you.most.interested.in.)){
@@ -173,4 +177,163 @@ for(i in unique(data$What.are.you.most.interested.in.)){
 ```
 
 
+```{r}
+things = list(
+  "name" = c("Harry Potter","Ron Weasley","Hermione Granger", "Draco Malfoy","Neville Longbottom"),
+  "choice" = c("Ron Weasely","Harry Potter","Neville Longbottom","Harry James Potter","Hermione Granger"),
+  "skill1" = sample(0:1,5,replace = T),
+  "skill2" = sample(0:1,5,replace = T),
+  "skill3" = sample(0:1,5,replace = T)
+)
+df = as.data.frame(things,stringsAsFactors = F)
+rownames(df) <- seq(nrow(df))
+print(df)
+
+```
+```{r}
+
+```
+```{r}
+skips <- c()
+for(i in seq(nrow(df))){
+  if(df[i,]$choice != ""){
+    if(df[i,]$choice %in% df$name){
+      
+      friend_pos = rownames(df[df$name == df[i,]$choice,])
+      print(paste(df[i,]$name, " chose ",df[friend_pos,]$name))
+      
+      if(df[friend_pos,]$choice == df[i,]$name){
+        print("and they chose each other")
+        df[i,]$name <- paste(df[i,]$name,"@",df[friend_pos,]$name,sep="")
+        print(df[i,]$name)
+        skips <- c(skips,friend_pos)
+        
+      }
+      else{
+        print("but they didn't choose each other")
+      }
+    }
+  }
+}
+df[!rownames(df) %in% skips,]
+```
+
+
+```{r}
+for(i in seq(nrow(df))){
+  if(df[i,]$choice != ""){
+    if(df[i,]$choice %in% df$name){
+      
+      friend_pos = rownames(df[df$name == df[i,]$choice,])
+      print(paste(df[i,]$name, " chose ",df[friend_pos,]$name))
+      
+      if(df[friend_pos,]$choice == df[i,]$name){
+        
+        print("...and they chose each other!")
+      }
+      else{
+        print("...but they didn't choose each other")
+      }
+    }
+    else{
+      print(paste(df[i,]$name," didn't choose anyone in this class."))
+    }
+  }
+}
+```
+
+```{r}
+responses <- read.csv('data/fake2.csv',stringsAsFactors = F)
+head(responses)
+```
+
+```{r}
+names(responses)[4] <- "choice"
+names(responses)[2] <- "name"
+names(responses)
+```
+```{r}
+check_for_partners <- function(df){
+  for(i in seq(nrow(df))){
+    if(df[i,]$choice != ""){
+      if(df[i,]$choice %in% df$name){
+        
+        friend_pos = rownames(df[df$name == df[i,]$choice,])
+        print(paste(df[i,]$name, " chose ",df[friend_pos,]$name))
+        
+        if(df[friend_pos,]$choice == df[i,]$name){
+          
+          print("...and they chose each other!")
+        }
+        else{
+          print("...but they didn't choose each other")
+        }
+      }
+      else{
+        print(paste(df[i,]$name," didn't choose anyone in this class."))
+      }
+    }
+  }
+}
+
+###
+
+concat_partners <- function(df){
+  skips <- c()
+  for(i in seq(nrow(df))){
+    if(df[i,]$choice != ""){
+      if(df[i,]$choice %in% df$name){
+        friend_pos = rownames(df[df$name == df[i,]$choice,])
+        if(df[friend_pos,]$choice == df[i,]$name){
+          df[i,]$name <- paste(df[i,]$name,"@",df[friend_pos,]$name,sep="")
+          print(df[i,]$name)
+          skips <- c(skips,friend_pos)
+          
+        }
+      }
+    }
+  }
+  df[!rownames(df) %in% skips,]
+}
+
+```
+
+
+```{r}
+partneredup <- concat_partners(responses)
+```
+```{r}
+partneredup$assignment <- sample(1:10,93,replace = T)
+```
+
+```{r}
+responses$assignment <- 0
+for(i in seq(nrow(partneredup))){
+  name <- partneredup$name[i]
+  if(regexpr("@",name,fixed=T) > 0){
+    partners <- strsplit(name,"@")
+    responses[responses$name == partners[[1]][2],]$assignment <- partneredup$assignment[i]
+    responses[responses$name == partners[[1]][1],]$assignment <- partneredup$assignment[i]
+  }
+  else{
+    responses[responses$name == name,]$assignment <- partneredup$assignment[i]
+  }
+}
+```
+
+```{r}
+responses[, c(2,ncol(responses))]
+```
+
+
+```{r}
+partneredup[,c(2,ncol(partneredup))]
+```
+```{r}
+p <- ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop, color = continent, frame = year)) +
+  geom_point() +
+  scale_x_log10()
+
+gganimate(p)
+```
 

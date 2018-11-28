@@ -391,36 +391,100 @@ server <- function(input,output,session){
     )
   )
   
-  output$generalinfo <- renderText({
+  # output$generalinfo <- renderText({
+  #   if(is_null(input$file1)) return(NULL)
+  #   df <- groups()
+  #   geninf <- list(
+  #     "Number of students" = nrow(df),
+  #     "Number of groups" = length(unique(df$assignment)),
+  #     "Most popular interest" = as.data.frame(df %>% group_by(interest) %>% 
+  #                                               summarise(n = n()) %>% 
+  #                                               filter(n==max(n)))[[1]],
+  #     "num of pop interest" = as.data.frame(df %>% group_by(interest) %>% 
+  #                                             summarise(n = n()) %>% 
+  #                                             filter(n==max(n)))[[2]],
+  #     "Least popular interest" = as.data.frame(df %>% group_by(interest) %>% 
+  #                                                summarise(n = n()) %>% 
+  #                                                filter(n==min(n)))[[1]],
+  #     "num of least pop" = as.data.frame(df %>% group_by(interest) %>% 
+  #                                          summarise(n = n()) %>% 
+  #                                          filter(n==min(n)))[[2]]
+  #   )
+  #   paste(
+  #     "<strong>Number of students</strong>:", geninf[[1]],
+  #     "<br>",
+  #     "<strong>Number of groups</strong>:", geninf[[2]], 
+  #     "<br>",
+  #     "<strong>Most popular interest</strong>:", geninf[[3]]," (", geninf[[4]],")",
+  #     "<br>",
+  #     "<strong>Least popular interest</strong>:",geninf[[5]]," (", geninf[[6]],")"
+  #   )
+  # }
+  # )
+  geninfo <- reactive({
+      if(is_null(input$file1)) return(NULL)
+      df <- groups()
+      geninf <- list(
+        "Number of students" = nrow(df),
+        "Number of groups" = length(unique(df$assignment)),
+        "Most popular interest" = as.data.frame(df %>% group_by(interest) %>%
+                                                  summarise(n = n()) %>%
+                                                  filter(n==max(n)))[[1]],
+        "num of pop interest" = as.data.frame(df %>% group_by(interest) %>%
+                                                summarise(n = n()) %>%
+                                                filter(n==max(n)))[[2]],
+        "Least popular interest" = as.data.frame(df %>% group_by(interest) %>%
+                                                   summarise(n = n()) %>%
+                                                   filter(n==min(n)))[[1]],
+        "num of least pop" = as.data.frame(df %>% group_by(interest) %>%
+                                             summarise(n = n()) %>%
+                                             filter(n==min(n)))[[2]],
+        "byrec" = nrow(df[df$alternate_grouping_strategy == "recommended",])
+      )
+      geninf
+  })
+  
+  output$row1 <- renderUI({
     if(is_null(input$file1)) return(NULL)
-    df <- groups()
-    geninf <- list(
-      "Number of students" = nrow(df),
-      "Number of groups" = length(unique(df$assignment)),
-      "Most popular interest" = as.data.frame(df %>% group_by(interest) %>% 
-                                                summarise(n = n()) %>% 
-                                                filter(n==max(n)))[[1]],
-      "num of pop interest" = as.data.frame(df %>% group_by(interest) %>% 
-                                              summarise(n = n()) %>% 
-                                              filter(n==max(n)))[[2]],
-      "Least popular interest" = as.data.frame(df %>% group_by(interest) %>% 
-                                                 summarise(n = n()) %>% 
-                                                 filter(n==min(n)))[[1]],
-      "num of least pop" = as.data.frame(df %>% group_by(interest) %>% 
-                                           summarise(n = n()) %>% 
-                                           filter(n==min(n)))[[2]]
+    fluidRow(
+      bs4ValueBox(
+        subtitle = "Number of groups",
+        value = h3(geninfo()[[2]]),
+        status = "success",
+        width = 6
+      )
+      ,bs4ValueBox(
+        subtitle = "Number of students grouped by Recommender",
+        value = h3(geninfo()[[7]]),
+        status = "success",
+        width = 6
+      )
     )
-    paste(
-      "<strong>Number of students</strong>:", geninf[[1]],
-      "<br>",
-      "<strong>Number of groups</strong>:", geninf[[2]], 
-      "<br>",
-      "<strong>Most popular interest</strong>:", geninf[[3]]," (", geninf[[4]],")",
-      "<br>",
-      "<strong>Least popular interest</strong>:",geninf[[5]]," (", geninf[[6]],")"
+  })
+  
+  output$row2 <- renderUI({
+    if(is_null(input$file1)) return(NULL)
+    fluidRow(
+      bs4ValueBox(
+        subtitle = paste("Most popular interest  (", geninfo()[[4]], " students)", sep = ""),
+        value = h4(geninfo()[[3]]),
+        width = 4
+        # gradientColor = "warning"
+      )
+      ,bs4ValueBox(
+        subtitle = paste("Least popular interest (", geninfo()[[6]], " students)", sep = ""),
+        value = h4(geninfo()[[5]]),
+        width = 4
+        # gradientColor = "warning"
+      )
+      ,bs4ValueBox(
+        subtitle = "Total number of students",
+        value = h3(geninfo()[[1]]),
+        width = 4
+        # gradientColor = "warning"
+      )
     )
-  }
-  )
+  })
   
   #### CHARTS
   
@@ -511,9 +575,11 @@ server <- function(input,output,session){
   
   # GROUP SELECTION
   output$grouppick <- renderUI({
+    g <- sort(unique(student_sheet()$assignment))
+    # print(g)
     pickerInput(inputId = 'pickedgroup',
                 label = 'Select Group',
-                choices = sort(unique(student_sheet()$assignment)),
+                choices = g,
                 multiple = F)
   })
   
