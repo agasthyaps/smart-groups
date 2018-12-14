@@ -5,9 +5,9 @@ account: agasthyaps
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 458099
-bundleId: 1713870
+bundleId: 1727054
 url: https://agasthyaps.shinyapps.io/smartgroups/
-when: 1542836606.73087
+when: 1543444470.7319
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: tests.nb.html|tests.Rmd|data
+ignoredFiles: restart.txt|studentgroupsreport.Rmd|tests.nb.html|tests.Rmd|data/.DS_Store|data/fake2.csv|data/fakeresponses.csv

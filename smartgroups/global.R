@@ -1,20 +1,19 @@
+lp='/nfs/home/A/agp234/.R/library-x86_64'
+.libPaths(lp)
+
 library(shiny)
 library(shinydashboard)
-library(googlesheets)
 library(DT)
 library(topicmodels) #topic modeling functions
 library(stringr) #common string functions
 library(tidytext) #tidy text analysis
-library(factoextra)
 library(itertools)
 library(reshape2)
 library(plotly)
-library(ggfortify)
-library(cluster)
 library(shinyWidgets)
 library(fmsb)
 library(bs4Dash)
 library(shinydashboardPlus)
-library(argonDash)
 library(argonR)
+library(argonDash)
 suppressMessages(library(tidyverse))

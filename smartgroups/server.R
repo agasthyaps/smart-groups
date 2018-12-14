@@ -4,7 +4,7 @@ server <- function(input,output,session){
   ##### FUNCTIONS #####
   
   # raw table
-  t <- reactive({
+  og_t <- reactive({
     # read the url, create dfs
     inFile <- input$file1
     s <- read.csv(inFile$datapath, header = T)
@@ -16,8 +16,50 @@ server <- function(input,output,session){
     for(i in 8:ncol(table)){
       skill.names <- c(skill.names,gsub("\\.","",regmatches(names(table)[i],regexpr("\\w+",names(table[i])),invert=T)[[1]][2]))
     }
-    names(table) <- c("time","name","interest","group.names","graded","lda","program",skill.names)
+    names(table) <- c("time","name","interest","choice","graded","topics","program",skill.names)
     rownames(table) <- table$name
+    table
+  })
+  
+  table <- reactive({
+    table <- concat_partners(og_t())
+    rownames(table) <- table$name
+    table
+  })
+  
+  #this will be used to bring back people who were merged from concat_partners
+  original_names_table <- reactive({
+    table <- og_t()
+    table <- table[,c(2,3,5,7,6,8:ncol(table))]
+    skill_cols <- names(table[,c(8:ncol(table))])
+    # label encode skill cols:
+    for(i in skill_cols){
+      table[,i] <- label_encode(table[,i])
+    }
+    
+    # now we are missing a "skills" column (all the persons skills concatted)
+    table$skills <- ""
+    for(i in 1:nrow(table)){
+      tempskills <- ""
+      for(j in 8:ncol(table)){
+        if(table[i,names(table)[j]] == 1){
+          tempskills <- paste(tempskills,names(table)[j],sep= " • ")
+          # tempskills <- substr(tempskills,2,nchar(tempskills))
+        }
+      }
+      table$skills[i] <- tempskills
+    }
+    
+    # add "alternate grouping" as blank
+    # add assignment as blank
+    table$alternate_grouping_strategy <- ""
+    table$assignment <- 0
+    # table$choice <- og_t()$choice
+    #re order to match final groups
+    table <- table[,c("name","interest","graded","program","skills",
+                      "topics","alternate_grouping_strategy","assignment",skill_cols)]
+    # rownames(table) <- table$name
+    
     table
   })
   
@@ -29,6 +71,25 @@ server <- function(input,output,session){
       write.csv(groups(),file)
     }
   )
+  
+  # find partners and concat
+  concat_partners <- function(df){
+    skips <- c()
+    for(i in seq(nrow(df))){
+      if(df[i,]$choice != ""){
+        if(df[i,]$choice %in% df$name){
+          friend_pos = rownames(df[df$name == df[i,]$choice,])
+          if(df[friend_pos,]$choice == df[i,]$name){
+            df[i,]$name <- paste(df[i,]$name,"@",df[friend_pos,]$name,sep="")
+            # print(df[i,]$name)
+            skips <- c(skips,friend_pos)
+            
+          }
+        }
+      }
+    }
+    df[!rownames(df) %in% skips,]
+  }
   
   # label encode everything
   label_encode <- function(column){
@@ -89,20 +150,20 @@ server <- function(input,output,session){
   # cleaned up; columns are ("name","interest","graded","program","skills"..."topics")
   # everything is label encoded
   top <- reactive({
-    topic.list <- do_lda(t())
+    topic.list <- do_lda(table())
   })
   
   le <- reactive({
-    cl.le <- t()[,c("interest","graded","program")]
+    cl.le <- table()[,c("interest","graded","program")]
     # label encoding
-    cl.le$interest <- label_encode(t()$interest)
-    cl.le$graded <- label_encode(t()$graded)
-    cl.le$program <- label_encode(t()$program)
+    cl.le$interest <- label_encode(table()$interest)
+    cl.le$graded <- label_encode(table()$graded)
+    cl.le$program <- label_encode(table()$program)
     cl.le
   })
   
   skills <- reactive({
-    sk <- t()[,c(8:ncol(t()))]
+    sk <- table()[,c(8:ncol(table()))]
     # label encode skills
     skill.cols <- colnames(sk)
     for(i in skill.cols){
@@ -112,14 +173,16 @@ server <- function(input,output,session){
   })
   
   clean <- reactive({
-    cl <- t()[,c("time","name")]
+    cl <- table()[,c("time","name")]
     cl$topics <- top()$topics
     cl$interest <- le()$interest
     cl$graded <- le()$graded
     cl$program <- le()$program
     cl <- merge(cl,skills(),by=0)
     last <- ncol(cl)
+    # print(names(cl))
     cl <- cl[,c(3,5:last,4)]
+    # print(names(cl))
     cl <- split(cl,as.factor(cl$interest))
     cl <- bind_rows(cl)
     cl$alternate_grouping_strategy <- ""
@@ -188,9 +251,9 @@ server <- function(input,output,session){
       # print(r)
       #CHANGED THIS
       final.df[[i]]$topics <- cl[r,]$topics
-      final.df[[i]]$interest <- t()[r,]$interest
-      final.df[[i]]$program <- t()[r,]$program
-      final.df[[i]]$graded <- t()[r,]$graded
+      final.df[[i]]$interest <- table()[r,]$interest
+      final.df[[i]]$program <- table()[r,]$program
+      final.df[[i]]$graded <- table()[r,]$graded
     }
 
     final.df <- bind_rows(final.df)
@@ -232,6 +295,7 @@ server <- function(input,output,session){
           if(unassigned[i,]$topics %in% assigned[[j]]$topics && nrow(assigned[[j]]) < (input$group.size+1)){
             unassigned[i,]$assignment <- assigned[[j]]$assignment[1]
             unassigned[i,]$alternate_grouping_strategy <- "recommended"
+            # print("recommended someone")
             next()
           }
         }
@@ -245,12 +309,12 @@ server <- function(input,output,session){
     
     for(i in 1:nrow(final.df)){
       r <- rownames(final.df[i,])
-      final.df[r,]$topics <- t()[r,]$lda
+      final.df[r,]$topics <- table()[r,]$topics
     }
     
-    final.df$assignment <- as.factor(final.df$assignment)
-    final.df$interest <- as.factor(final.df$interest)
-    final.df$alternate_grouping_strategy <- as.factor(final.df$alternate_grouping_strategy)
+    final.df$assignment <- as.character(final.df$assignment)
+    final.df$interest <- as.character(final.df$interest)
+    final.df$alternate_grouping_strategy <- as.character(final.df$alternate_grouping_strategy)
     
     # CHANGED THIS
 
@@ -325,7 +389,7 @@ server <- function(input,output,session){
     final.groups$skills <- ""
     for(i in 1:nrow(final.groups)){
       tempskills <- ""
-      for(j in 8:15){
+      for(j in 8:ncol(final.groups)){
         if(final.groups[i,names(final.groups)[j]] == 1){
           tempskills <- paste(tempskills,names(final.groups)[j],sep= " • ")
           # tempskills <- substr(tempskills,2,nchar(tempskills))
@@ -337,7 +401,31 @@ server <- function(input,output,session){
     
     final.groups <- final.groups[,c(1,2,3,4,ncol(final.groups),ncol(final.groups)-3,ncol(final.groups)-2,ncol(final.groups)-1,5:(ncol(final.groups)-4))]
     # print(c(1,2,3,4,ncol(final.groups),ncol(final.groups)-3,ncol(final.groups)-2,ncol(final.groups)-1,5:(ncol(final.groups)-4)))
-    final.groups
+    
+    # now bring back people who were concatted
+    responses <- original_names_table()
+    for(i in seq(nrow(final.groups))){
+      name <- final.groups$name[i]
+      if(regexpr("@",name,fixed=T) > 0){
+        partners <- strsplit(name,"@")
+        # get assignment
+        responses[responses$name == partners[[1]][2],]$assignment <- final.groups$assignment[i]
+        responses[responses$name == partners[[1]][1],]$assignment <- final.groups$assignment[i]
+        
+        #get grouping strat
+        responses[responses$name == partners[[1]][2],]$alternate_grouping_strategy <- final.groups$alternate_grouping_strategy[i]
+        responses[responses$name == partners[[1]][1],]$alternate_grouping_strategy <- final.groups$alternate_grouping_strategy[i]
+      }
+      else{
+        responses[responses$name == name,]$assignment <- final.groups$assignment[i]
+        responses[responses$name == name,]$alternate_grouping_strategy <- final.groups$alternate_grouping_strategy[i]
+      }
+    }
+    
+    responses$assignment <- as.factor(responses$assignment)
+    responses$alternate_grouping_strategy <- as.factor(responses$alternate_grouping_strategy)
+    # print(responses[c(1:5),])
+    responses
     })
   
   
@@ -353,16 +441,18 @@ server <- function(input,output,session){
     else{
       list(
         columnDefs = list(
-          list(visible = F, targets = c(0,4,5,6,7,10:(ncol(groups())+1))
-          ),
-          list(orderable = T, className = 'details-control', targets = 1)
+          list(visible = F, targets = c(0,2,5,6,7,8,11:(ncol(groups())+2))
+          )
+          ,list(orderable = T, className = 'details-control', targets = 1)
         )
       ) 
     }
   })
   output$sheet <- renderDT({
     if(is_null(input$file1)) return(NULL)
-    df <- cbind(' ' = '&oplus;',groups())
+    df <- cbind(og_t()$choice,groups())
+    df <- cbind(' ' = '&oplus;',df)
+    # df <- cbind(df,og_t()$choice)
     # names(df)[ncol(df)] <- "Group Assignment"
     df
     },
@@ -371,12 +461,14 @@ server <- function(input,output,session){
     filter = 'top',
     # rownames = FALSE,
     selection = 'none',
-    options = opts,
-    callback = JS("
+    options = opts
+    ,callback = JS("
   table.column(1).nodes().to$().css({cursor: 'pointer'});
                   var format = function(d) {
-                  return '<div style=\"background-color:#add8e6; padding: .5em;\"><strong>Taking for a grade?:</strong> ' +
-                  d[4] +'<br>'+ '<strong>Program:</strong> ' + d[5] +'<br>'+ '<strong>Short Answer:</strong> ' + d[7] + '<br>'+ '<strong>Skills:</strong> ' + d[6] +'</div>';
+                  return '<div style=\"background-color:#add8e6; padding: .5em;\"><strong>Taking for a grade?: </strong> ' +
+                  d[5] +'<br>'+ '<strong>Program: </strong> ' + d[6] +'<br>'+
+                  '<strong>Short Answer: </strong> ' + d[8] + '<br>'+
+                  '<strong>Skills: </strong> ' + d[7] + '<br>' + '<strong>Requested Partner: </strong>' + d[2] + '</div>';
                   };
                   table.on('click', 'td.details-control', function() {
                   var td = $(this), row = table.row(td.closest('tr'));
@@ -391,36 +483,6 @@ server <- function(input,output,session){
     )
   )
   
-  # output$generalinfo <- renderText({
-  #   if(is_null(input$file1)) return(NULL)
-  #   df <- groups()
-  #   geninf <- list(
-  #     "Number of students" = nrow(df),
-  #     "Number of groups" = length(unique(df$assignment)),
-  #     "Most popular interest" = as.data.frame(df %>% group_by(interest) %>% 
-  #                                               summarise(n = n()) %>% 
-  #                                               filter(n==max(n)))[[1]],
-  #     "num of pop interest" = as.data.frame(df %>% group_by(interest) %>% 
-  #                                             summarise(n = n()) %>% 
-  #                                             filter(n==max(n)))[[2]],
-  #     "Least popular interest" = as.data.frame(df %>% group_by(interest) %>% 
-  #                                                summarise(n = n()) %>% 
-  #                                                filter(n==min(n)))[[1]],
-  #     "num of least pop" = as.data.frame(df %>% group_by(interest) %>% 
-  #                                          summarise(n = n()) %>% 
-  #                                          filter(n==min(n)))[[2]]
-  #   )
-  #   paste(
-  #     "<strong>Number of students</strong>:", geninf[[1]],
-  #     "<br>",
-  #     "<strong>Number of groups</strong>:", geninf[[2]], 
-  #     "<br>",
-  #     "<strong>Most popular interest</strong>:", geninf[[3]]," (", geninf[[4]],")",
-  #     "<br>",
-  #     "<strong>Least popular interest</strong>:",geninf[[5]]," (", geninf[[6]],")"
-  #   )
-  # }
-  # )
   geninfo <- reactive({
       if(is_null(input$file1)) return(NULL)
       df <- groups()
@@ -511,7 +573,7 @@ server <- function(input,output,session){
   
   #SLIDER TEXT
   output$slider <- renderText({
-    paste("<h4>Number of People per Group (+/- 1): <strong>",input$group.size,"</strong></h4>",sep=" ")
+    paste("<h5>Number of People per Group (+/- 1): <strong>",input$group.size,"</strong></h5>",sep=" ")
   })
   
   ################## STUDENT TAB ################

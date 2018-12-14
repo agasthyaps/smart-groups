@@ -329,11 +329,4 @@ responses[, c(2,ncol(responses))]
 ```{r}
 partneredup[,c(2,ncol(partneredup))]
 ```
-```{r}
-p <- ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop, color = continent, frame = year)) +
-  geom_point() +
-  scale_x_log10()
-
-gganimate(p)
-```
 
