@@ -16,21 +16,30 @@ server <- function(input,output,session){
     for(i in 8:ncol(table)){
       skill.names <- c(skill.names,gsub("\\.","",regmatches(names(table)[i],regexpr("\\w+",names(table[i])),invert=T)[[1]][2]))
     }
-    names(table) <- c("time","name","interest","choice","graded","topics","program",skill.names)
+    names(table) <- c("time","name","shortanswer","interest1","interest2","choice","program",skill.names)
+    # used to be time name interest choice graded shortanswer program skillnames
     rownames(table) <- table$name
     table
   })
   
   table <- reactive({
     table <- concat_partners(og_t())
+    table <- table[,-c(5)]
     rownames(table) <- table$name
     table
+  })
+  
+  second_choice <- reactive({
+    sc <- og_t()[,c(2,5)]
+    rownames(sc) <- sc$name
+    sc
   })
   
   #this will be used to bring back people who were merged from concat_partners
   original_names_table <- reactive({
     table <- og_t()
-    table <- table[,c(2,3,5,7,6,8:ncol(table))]
+    # want name interest program shortanswer skillnames
+    table <- table[,c(2,4,7,3,8:ncol(table))]
     skill_cols <- names(table[,c(8:ncol(table))])
     # label encode skill cols:
     for(i in skill_cols){
@@ -56,8 +65,8 @@ server <- function(input,output,session){
     table$assignment <- 0
     # table$choice <- og_t()$choice
     #re order to match final groups
-    table <- table[,c("name","interest","graded","program","skills",
-                      "topics","alternate_grouping_strategy","assignment",skill_cols)]
+    table <- table[,c("name","interest1","program","skills",
+                      "shortanswer","alternate_grouping_strategy","assignment",skill_cols)]
     # rownames(table) <- table$name
     
     table
@@ -110,7 +119,7 @@ server <- function(input,output,session){
     word_count
   }
   
-  do_lda <- function(df,columns=c(2,6)){
+  do_lda <- function(df,columns=c(2,3)){
     # column nums should be in this format: c(document, text)
     
     answers <- df[columns]
@@ -142,22 +151,22 @@ server <- function(input,output,session){
                        method="Gibbs", control=control)
     
     topic.list <- as.data.frame(topics(answer_lda,1))
-    names(topic.list) <- "topics"
+    names(topic.list) <- "shortanswer"
     topic.list
     
   }
   
-  # cleaned up; columns are ("name","interest","graded","program","skills"..."topics")
+  # cleaned up; columns are ("name","interest1","program","skills"..."shortanswer")
   # everything is label encoded
   top <- reactive({
     topic.list <- do_lda(table())
   })
   
   le <- reactive({
-    cl.le <- table()[,c("interest","graded","program")]
+    cl.le <- table()[,c("interest1","program")]
     # label encoding
-    cl.le$interest <- label_encode(table()$interest)
-    cl.le$graded <- label_encode(table()$graded)
+    cl.le$interest1 <- label_encode(table()$interest1)
+    # cl.le$graded <- label_encode(table()$graded)
     cl.le$program <- label_encode(table()$program)
     cl.le
   })
@@ -174,16 +183,16 @@ server <- function(input,output,session){
   
   clean <- reactive({
     cl <- table()[,c("time","name")]
-    cl$topics <- top()$topics
-    cl$interest <- le()$interest
-    cl$graded <- le()$graded
+    cl$shortanswer <- top()$shortanswer
+    cl$interest1 <- le()$interest1
+    # cl$graded <- le()$graded
     cl$program <- le()$program
     cl <- merge(cl,skills(),by=0)
     last <- ncol(cl)
     # print(names(cl))
     cl <- cl[,c(3,5:last,4)]
     # print(names(cl))
-    cl <- split(cl,as.factor(cl$interest))
+    cl <- split(cl,as.factor(cl$interest1))
     cl <- bind_rows(cl)
     cl$alternate_grouping_strategy <- ""
     # print(rownames(cl))
@@ -227,12 +236,12 @@ server <- function(input,output,session){
         
         for(g in cur_group:(cur_group+(num_groups-1))){
           assignments <- c(assignments,rep(cur_group,group_size))
-          
           cur_group <- cur_group+1
         }
         rem <- nrow(cur.df) %% group_size
         assignments <- c(assignments,rep(0,rem))
-        # only shuffle if num_groups > 1
+        
+        # only shuffle if num_groups (ie the number of groups within this interest) > 1
         if(num_groups > 1){
           s[[group]]$assignment <- assign_groups(s[[group]],assignments)
         }
@@ -248,12 +257,10 @@ server <- function(input,output,session){
     for(i in seq_along(final.df)){
       rownames(final.df[[i]]) <- final.df[[i]]$name
       r <- rownames(final.df[[i]])
-      # print(r)
-      #CHANGED THIS
-      final.df[[i]]$topics <- cl[r,]$topics
-      final.df[[i]]$interest <- table()[r,]$interest
+      final.df[[i]]$shortanswer <- cl[r,]$shortanswer
+      final.df[[i]]$interest1 <- table()[r,]$interest1
       final.df[[i]]$program <- table()[r,]$program
-      final.df[[i]]$graded <- table()[r,]$graded
+      # final.df[[i]]$graded <- table()[r,]$graded
     }
 
     final.df <- bind_rows(final.df)
@@ -273,52 +280,55 @@ server <- function(input,output,session){
     final.df$alternate_grouping_strategy <- ra
     unassigned <- final.df[final.df$assignment == 0,]
     
-    for(i in 1:nrow(unassigned)){
-      pool <- final.df[final.df$interest == unassigned[i,]$interest[1],]
-      for(g in unique(pool$assignment)){
-        if(nrow(pool[pool$assignment == g,]) < as.numeric(input$group.size)+1 && g != 0){
-          final.df[rownames(unassigned[i,]),]$assignment <- pool[pool$assignment == g,]$assignment[1]
-          final.df[rownames(unassigned[i,]),]$alternate_grouping_strategy <- "randomly assigned"
-        }
-      }
-    }
+    # TAKEN OUT FOR JB. 
+    # for(i in 1:nrow(unassigned)){
+    #   pool <- final.df[final.df$interest1 == unassigned[i,]$interest1[1],]
+    #   for(g in unique(pool$assignment)){
+    #     # below, add "+1" to input$group.size (ouside paren). had to remove for JB.
+    #     if(nrow(pool[pool$assignment == g,]) < as.numeric(input$group.size) && g != 0){
+    #       final.df[rownames(unassigned[i,]),]$assignment <- pool[pool$assignment == g,]$assignment[1]
+    #       # final.df[rownames(unassigned[i,]),]$alternate_grouping_strategy <- "randomly assigned"
+    #     }
+    #   }
+    # }
     
     
     rownames(final.df) <- final.df$name
-    #ADDED THIS
-    unassigned <- final.df[final.df$assignment == 0,]
-    if(nrow(unassigned) > 0){
-      assigned <- final.df[final.df$assignment != 0,]
-      assigned <- split(assigned,as.factor(assigned$assignment))
-      for(i in 1:nrow(unassigned)){
-        for(j in seq_along(assigned)){
-          if(unassigned[i,]$topics %in% assigned[[j]]$topics && nrow(assigned[[j]]) < (input$group.size+1)){
-            unassigned[i,]$assignment <- assigned[[j]]$assignment[1]
-            unassigned[i,]$alternate_grouping_strategy <- "recommended"
-            # print("recommended someone")
-            next()
-          }
-        }
-      }
-      for(i in 1:nrow(unassigned)){
-        r <- unassigned[i,]$name
-        final.df[r,]$assignment <- unassigned[i,]$assignment
-        final.df[r,]$alternate_grouping_strategy <- unassigned[i,]$alternate_grouping_strategy
-      }
-    }
+    #TOOK THIS OUT FOR JB
+    # unassigned <- final.df[final.df$assignment == 0,]
+    # if(nrow(unassigned) > 0){
+    #   assigned <- final.df[final.df$assignment != 0,]
+    #   assigned <- split(assigned,as.factor(assigned$assignment))
+    #   for(i in 1:nrow(unassigned)){
+    #     for(j in seq_along(assigned)){
+    #       # below, add "+1" to input$group.size (inside paren). had to remove for JB.
+    #       if(unassigned[i,]$shortanswer %in% assigned[[j]]$shortanswer && nrow(assigned[[j]]) < (input$group.size)){
+    #         unassigned[i,]$assignment <- assigned[[j]]$assignment[1]
+    #         unassigned[i,]$alternate_grouping_strategy <- "recommended"
+    #         # print("recommended someone")
+    #         next()
+    #       }
+    #     }
+    #   }
+    #   for(i in 1:nrow(unassigned)){
+    #     r <- unassigned[i,]$name
+    #     final.df[r,]$assignment <- unassigned[i,]$assignment
+    #     final.df[r,]$alternate_grouping_strategy <- unassigned[i,]$alternate_grouping_strategy
+    #   }
+    # }
     
     for(i in 1:nrow(final.df)){
       r <- rownames(final.df[i,])
-      final.df[r,]$topics <- table()[r,]$topics
+      final.df[r,]$shortanswer <- table()[r,]$shortanswer
     }
     
     final.df$assignment <- as.character(final.df$assignment)
-    final.df$interest <- as.character(final.df$interest)
+    final.df$interest1 <- as.character(final.df$interest1)
     final.df$alternate_grouping_strategy <- as.character(final.df$alternate_grouping_strategy)
     
     # CHANGED THIS
 
-    # final.df$topics <- t()$lda
+    # final.df$shortanswer <- t()$lda
     # print(names(final.df))
     
     final.df
@@ -327,7 +337,7 @@ server <- function(input,output,session){
   # helper function, shuffles groups until there is an 
   # appropriate diversity of skills (group size as limiting factor)
   until_its_good <- function(df,size){
-    # important!!! (because now there is a topics and assignment column as the last columns)
+    # important!!! (because now there is a shortanswer and assignment column as the last columns)
     last.skill <- ncol(df)-3
     skills.table <- df[,6:last.skill]
     # skills.table[is.na(skills.table)] <- 0
@@ -362,7 +372,7 @@ server <- function(input,output,session){
             if(j == i){
               next()
             }
-            if(small[row,]$topics %in% df[[j]]$topics){
+            if(small[row,]$shortanswer %in% df[[j]]$shortanswer){
               name <- small[row,]$name
               df[[j]] <- rbind(df[[j]],small[row,])
               df[[j]][df[[j]]$name == name,]$alternate_grouping_strategy <- "recommended"
@@ -381,7 +391,7 @@ server <- function(input,output,session){
     # break up into separate dfs based on interest
     # interest.dfs <- split(clean(),as.factor(clean()$interest))
     # print(interest.dfs)
-    interest.dfs <- at_least_min(clean(),clean()$interest)
+    interest.dfs <- at_least_min(clean(),clean()$interest1)
     final.groups <- make_groups(interest.dfs,input$group.size)
     
     # get a list of skills so we can display in expanded row
@@ -402,6 +412,8 @@ server <- function(input,output,session){
     final.groups <- final.groups[,c(1,2,3,4,ncol(final.groups),ncol(final.groups)-3,ncol(final.groups)-2,ncol(final.groups)-1,5:(ncol(final.groups)-4))]
     # print(c(1,2,3,4,ncol(final.groups),ncol(final.groups)-3,ncol(final.groups)-2,ncol(final.groups)-1,5:(ncol(final.groups)-4)))
     
+    # responses <- cbind(responses,second_choice()$interest2)
+    
     # now bring back people who were concatted
     responses <- original_names_table()
     for(i in seq(nrow(final.groups))){
@@ -411,10 +423,14 @@ server <- function(input,output,session){
         # get assignment
         responses[responses$name == partners[[1]][2],]$assignment <- final.groups$assignment[i]
         responses[responses$name == partners[[1]][1],]$assignment <- final.groups$assignment[i]
-        
+  
         #get grouping strat
         responses[responses$name == partners[[1]][2],]$alternate_grouping_strategy <- final.groups$alternate_grouping_strategy[i]
         responses[responses$name == partners[[1]][1],]$alternate_grouping_strategy <- final.groups$alternate_grouping_strategy[i]
+        
+        # # signal that these people were partners
+        # responses[responses$name == partners[[1]][2],]$name <- paste(partners[[1]][2],"*",sep="")
+        # responses[responses$name == partners[[1]][1],]$name <- paste(partners[[1]][1],"*",sep="")
       }
       else{
         responses[responses$name == name,]$assignment <- final.groups$assignment[i]
@@ -423,6 +439,7 @@ server <- function(input,output,session){
     }
     
     responses$assignment <- as.factor(responses$assignment)
+    responses$interest1 <- as.factor(responses$interest1)
     responses$alternate_grouping_strategy <- as.factor(responses$alternate_grouping_strategy)
     # print(responses[c(1:5),])
     responses
@@ -441,7 +458,7 @@ server <- function(input,output,session){
     else{
       list(
         columnDefs = list(
-          list(visible = F, targets = c(0,2,5,6,7,8,11:(ncol(groups())+2))
+          list(visible = F, targets = c(0,2,3,4,7,8,9,12:(ncol(groups())+4))
           )
           ,list(orderable = T, className = 'details-control', targets = 1)
         )
@@ -450,8 +467,11 @@ server <- function(input,output,session){
   })
   output$sheet <- renderDT({
     if(is_null(input$file1)) return(NULL)
-    df <- cbind(og_t()$choice,groups())
+    # print(second_choice()$interest2)
+    df <- cbind(second_choice(), groups())
+    df <- cbind(og_t()$choice,df)
     df <- cbind(' ' = '&oplus;',df)
+    print(names(df))
     # df <- cbind(df,og_t()$choice)
     # names(df)[ncol(df)] <- "Group Assignment"
     df
@@ -465,10 +485,12 @@ server <- function(input,output,session){
     ,callback = JS("
   table.column(1).nodes().to$().css({cursor: 'pointer'});
                   var format = function(d) {
-                  return '<div style=\"background-color:#add8e6; padding: .5em;\"><strong>Taking for a grade?: </strong> ' +
-                  d[5] +'<br>'+ '<strong>Program: </strong> ' + d[6] +'<br>'+
-                  '<strong>Short Answer: </strong> ' + d[8] + '<br>'+
-                  '<strong>Skills: </strong> ' + d[7] + '<br>' + '<strong>Requested Partner: </strong>' + d[2] + '</div>';
+                  return '<div style=\"background-color:#add8e6; padding: .5em;\"><strong>Program: </strong> ' +
+                  d[7] +'<br>'+
+                  '<strong>Short Answer: </strong> ' + d[9] + '<br>'+
+                  '<strong>Skills: </strong> ' + d[8] + '<br>' + '<strong>Requested Partner: </strong>' + d[2] + '<br>' +
+                  '<strong>Secondary Interest: </strong>' + d[4] + '<br>' +
+                  '</div>';
                   };
                   table.on('click', 'td.details-control', function() {
                   var td = $(this), row = table.row(td.closest('tr'));
@@ -489,16 +511,16 @@ server <- function(input,output,session){
       geninf <- list(
         "Number of students" = nrow(df),
         "Number of groups" = length(unique(df$assignment)),
-        "Most popular interest" = as.data.frame(df %>% group_by(interest) %>%
+        "Most popular interest" = as.data.frame(df %>% group_by(interest1) %>%
                                                   summarise(n = n()) %>%
                                                   filter(n==max(n)))[[1]],
-        "num of pop interest" = as.data.frame(df %>% group_by(interest) %>%
+        "num of pop interest" = as.data.frame(df %>% group_by(interest1) %>%
                                                 summarise(n = n()) %>%
                                                 filter(n==max(n)))[[2]],
-        "Least popular interest" = as.data.frame(df %>% group_by(interest) %>%
+        "Least popular interest" = as.data.frame(df %>% group_by(interest1) %>%
                                                    summarise(n = n()) %>%
                                                    filter(n==min(n)))[[1]],
-        "num of least pop" = as.data.frame(df %>% group_by(interest) %>%
+        "num of least pop" = as.data.frame(df %>% group_by(interest1) %>%
                                              summarise(n = n()) %>%
                                              filter(n==min(n)))[[2]],
         "byrec" = nrow(df[df$alternate_grouping_strategy == "recommended",])
@@ -573,7 +595,7 @@ server <- function(input,output,session){
   
   #SLIDER TEXT
   output$slider <- renderText({
-    paste("<h5>Number of People per Group (+/- 1): <strong>",input$group.size,"</strong></h5>",sep=" ")
+    paste("<h5>Number of People per Group: <strong>",input$group.size,"</strong></h5>",sep=" ")
   })
   
   ################## STUDENT TAB ################
@@ -583,11 +605,11 @@ server <- function(input,output,session){
       if(is_null(input$file2)) return(NULL)
       inFile <- input$file2
       ss <- read.csv(inFile$datapath, header = T,stringsAsFactors = F)
-      ss <- ss[,c(2,9:ncol(ss))]
+      ss <- ss[,c(2,8:ncol(ss))]
     }
     else{
       if(is_null(input$file1)) return(NULL)
-      ss <- groups()[,c(1,8:ncol(groups()))]
+      ss <- groups()[,c(1,7:ncol(groups()))]
     }
     ss$assignment <- as.numeric(ss$assignment)
     ss

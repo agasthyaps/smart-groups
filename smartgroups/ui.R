@@ -5,7 +5,7 @@ ui <- dashboardPagePlus(
   skin = "blue-light",
   sidebar_background = "light",
   # sidebar_collapsed = T,
-  # collapse_sidebar = T,
+  collapse_sidebar = T,
   # bs4DashNavbar(title="Smart Groups V 0.1"),
   sidebar = dashboardSidebar(
     # id = "sb"
@@ -89,7 +89,7 @@ ui <- dashboardPagePlus(
                     ,boxPlus(
                       closable = F
                       ,title = htmlOutput("slider")
-                      ,sliderInput(inputId="group.size",label= "", min=1,max=25,value="4",step=1)
+                      ,sliderInput(inputId="group.size",label= "", min=5,max=5,value="5",step=1)
                       ,tags$style(HTML(".js-irs-0 .irs-single, .js-irs-0 .irs-bar-edge, .js-irs-0 .irs-bar {background: none}"))
                       ,width = 6
                       ,collapsible = T

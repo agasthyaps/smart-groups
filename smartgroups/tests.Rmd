@@ -20,9 +20,9 @@ as.factor(data[,d])
 
 
 ```{r}
-data$assignment <- rep(0,nrow(data))
-by.interest <- split(data,as.factor(data$What.are.you.most.interested.in.))
-by.interest
+# data$assignment <- rep(0,nrow(data))
+# by.interest <- split(data,as.factor(data$What.are.you.most.interested.in.))
+# by.interest
 ```
 ```{r}
 # we will be ok with groups of size num_groups (+/- 1)
@@ -329,4 +329,76 @@ responses[, c(2,ncol(responses))]
 ```{r}
 partneredup[,c(2,ncol(partneredup))]
 ```
+```{r}
+library(dplyr)
+```
+
+```{r}
+resp <- read.csv('data/fake3.csv',stringsAsFactors = F)
+resp
+```
+
+```{r}
+d <- list()
+groups.of.4 <- floor(nrow(resp)/5)
+n = 1
+rownames(resp) <- resp$Full.Name
+avail <- resp
+while(length(d)<groups.of.4){
+  for(i in unique(resp$What.are.you.most.interested.in.)){
+    if(nrow(avail[avail$What.are.you.most.interested.in.==i,])>=4){
+      grouped <- sample(avail[avail$What.are.you.most.interested.in.==i,]$Full.Name,4,FALSE)
+      d[[n]] <- resp[grouped,]
+      avail <- avail[!rownames(avail) %in% grouped,]
+      n <- n+1
+    }
+  }
+}
+
+```
+```{r}
+d
+```
+```{r}
+avail
+```
+
+
+
+```{r}
+for(i in seq(nrow(avail))){
+  interest <- avail$What.are.you.most.interested.in.[i]
+  for(group in seq(length(d))){
+    if(interest %in% d[[group]]$What.are.you.most.interested.in. && nrow(d[[group]]) < 5){
+      d[[group]] <- rbind(d[[group]],avail[i,])
+      avail <- avail[-c(i),]
+      break
+    }
+  }
+}
+
+for(i in seq(nrow(avail))){
+  interest <- avail$second.most.interested.in.[i]
+  for(group in seq(length(d))){
+    if(interest %in% d[[group]]$What.are.you.most.interested.in. && nrow(d[[group]]) < 5){
+      d[[group]] <- rbind(d[[group]],avail[i,])
+      avail <- avail[-c(i),]
+      break
+    }
+  }
+}
+print(nrow(avail))
+```
+
+```{r}
+
+```
+
+```{r}
+d
+```
+```{r}
+avail
+```
+
 

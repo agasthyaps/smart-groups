@@ -22,10 +22,10 @@ Below are the generated groups for HT123, along with a visual representation of 
 skills <- params$groups
 gsize <- params$size
 for(i in sort(unique(skills$assignment))){
+  cur_group <- skills[skills$assignment==i,]
   cat('\n')  
   cat("#Group ", i, "\n")
   cat("###",paste(cur_group$name,collapse=", "),"\n")
-  cur_group <- skills[skills$assignment==i,]
   
   rownames(cur_group) <- cur_group$names
   cur_group_data <- cur_group[,-c(1,2)]
